@@ -15,3 +15,6 @@ Resources:
         - DomainName: !Ref CustomDomainName
           ValidationDomain: !Ref CustomDomainName
       ValidationMethod: DNS
+Outputs:
+  CertArn:
+    Value: !Ref AppCert

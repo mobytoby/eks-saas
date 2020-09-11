@@ -1,0 +1,66 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS EKS Reference Architecture Root Stack
+Parameters:
+  EKSRefArchBucket:
+    Description: EKS Reference Architecture assets S3 bucket
+    Type: String
+    MinLength: 1
+  DomainName:
+    Description: The domain which will host the EKS Workloads.
+    Type: String
+  HostedZoneId:
+    Description: The id of an existing hosted zone to user
+    Type: String
+    Default: ''
+Resources:
+  CrossRegionCfnRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CrossRegionCfnRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: CfnStackAssumeRole
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: 
+            - 'cloudformation:CreateStack'
+            - 'cloudformation:UpdateStack'
+            - 'cloudformation:DeleteStack'
+            - 'cloudformation:DescribeStacks'
+            Resource: "*"
+          - Effect: Allow
+            Action: 
+            - 's3:CreateBucket'
+            - 's3:DeleteBucket'
+            - 's3:DeleteBucket*'
+            - 's3:PutBucket*'
+            Resource: "*"
+  CrossRegionLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      MemorySize: 128
+      Role: !GetAtt CrossRegionCfnRole.Arn
+      Runtime: python3.6
+      Timeout: 900
+      Code:
+        S3Bucket: !Ref EKSRefArchBucket
+        S3Key: 'cfn-cross-region.zip'
+  Base:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://${EKSRefArchBucket}.s3.amazonaws.com/eks-ref-base.yaml
+      Parameters:
+        EKSRefArchBucket: !Ref EKSRefArchBucket
+        CustomDomainName: !Ref DomainName
+        # HostedZoneId: !Ref HostedZoneId
+        CrossRegionStackMakerLambda: !GetAtt CrossRegionLambda.Arn
