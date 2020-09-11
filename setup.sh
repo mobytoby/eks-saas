@@ -1,13 +1,25 @@
 #!/bin/bash
-
+echo "Installing kubectl"
 sudo curl --silent --location -o /usr/local/bin/kubectl \
   https://amazon-eks.s3.us-west-2.amazonaws.com/1.17.7/2020-07-08/bin/linux/amd64/kubectl
 
 sudo chmod +x /usr/local/bin/kubectl
 
+echo "Upgrading AWS CLI"
 sudo pip install --upgrade awscli && hash -r
 
+echo "Installing helper tools"
 sudo yum -y install jq gettext bash-completion moreutils
+
+echo "Installing eksctl"
+curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+
+sudo mv -v /tmp/eksctl /usr/local/bin
+
+echo "Installing bash completion for eksctl"
+eksctl completion bash >> ~/.bash_completion
+. /etc/profile.d/bash_completion.sh
+. ~/.bash_completion
 
 echo 'yq() {
   docker run --rm -i -v "${PWD}":/workdir mikefarah/yq yq "$@"
@@ -34,5 +46,18 @@ echo "export ACCOUNT_ID=${ACCOUNT_ID}" | tee -a ~/.bash_profile
 echo "export AWS_REGION=${AWS_REGION}" | tee -a ~/.bash_profile
 aws configure set default.region ${AWS_REGION}
 aws configure get default.region
-aws sts get-caller-identity --query Arn | grep eksworkshop-admin -q && echo "IAM role valid" || echo "IAM role NOT valid. Do NOT continue"
+
+echo "Generating a new key. Hit ENTER three times when prompted to accept the defaults"
+ssh-keygen
+
+aws ec2 import-key-pair --key-name "eks-saas" --public-key-material file://~/.ssh/id_rsa.pub
+
+aws kms create-alias --alias-name alias/eksworkshop --target-key-id $(aws kms create-key --query KeyMetadata.Arn --output text)
+
+export MASTER_ARN=$(aws kms describe-key --key-id alias/eksworkshop --query KeyMetadata.Arn --output text)
+
+echo "export MASTER_ARN=${MASTER_ARN}" | tee -a ~/.bash_profile
+
+aws sts get-caller-identity --query Arn | grep eksworkshop-admin -q && echo "IAM role valid" || echo "IAM role NOT valid. Do not proceed with creating the EKS Cluster or you won't be able to authenticate. Ensure you assigned the role to your EC2 instance as detailed in the README.md of the eks-saas repo"
+
 
