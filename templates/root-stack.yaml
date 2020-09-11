@@ -1,0 +1,28 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS EKS Reference Architecture Root Stack
+Parameters:
+  EKSRefArchBucket:
+    Description: EKS Reference Architecture assets S3 bucket
+    Type: String
+    MinLength: 1
+  AdminEmailAddress:
+    Description: Email address of admin user to receive temporary password notification
+    Type: String
+    AllowedPattern: ^[^\s@]+@[^\s@]+\.[^\s@]+$
+    ConstraintDescription: Must be a valid email address.
+  DomainName:
+    Description: The domain which will host the EKS Workloads.
+    Type: String
+  HostedZoneId:
+    Description: The id of an existing hosted zone to user
+    Type: String
+    Default: ''
+Resources:
+  base:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://${EKSRefArchBucket}.s3.amazonaws.com/eks-ref-base.yaml
+      Parameters:
+        CustomDomainName: !Ref DomainName
+        HostedZoneId: !Ref HostedZoneId

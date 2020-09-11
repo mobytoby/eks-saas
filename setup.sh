@@ -58,6 +58,6 @@ export MASTER_ARN=$(aws kms describe-key --key-id alias/eksworkshop --query KeyM
 
 echo "export MASTER_ARN=${MASTER_ARN}" | tee -a ~/.bash_profile
 
-aws sts get-caller-identity --query Arn | grep eksworkshop-admin -q && echo "IAM role valid" || echo "IAM role NOT valid. Do not proceed with creating the EKS Cluster or you won't be able to authenticate. Ensure you assigned the role to your EC2 instance as detailed in the README.md of the eks-saas repo"
+aws sts get-caller-identity --query Arn | grep eksworkshop-admin -q && echo "IAM role valid. You can continue setting up the EKS Cluster." || echo "IAM role NOT valid. Do not proceed with creating the EKS Cluster or you won't be able to authenticate. Ensure you assigned the role to your EC2 instance as detailed in the README.md of the eks-saas repo"
 
 
