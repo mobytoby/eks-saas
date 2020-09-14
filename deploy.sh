@@ -2,8 +2,9 @@
 #set -x
 : "${STACK_NAME:=$1}"
 : "${DOMAINNAME:=$2}"
+: "${HOSTEDZONEID:=$3}"
 
-USAGE_PROMPT="Use: $0 <STACKNAME> <DOMAINNAME>"
+USAGE_PROMPT="Use: $0 <STACKNAME> <DOMAINNAME> <HOSTEDZONEID>"
 
 if [[ -z ${STACK_NAME} ]]; then
   echo "No Stack Name is provided."
@@ -13,6 +14,12 @@ fi
 
 if [[ -z ${DOMAINNAME} ]]; then
   echo "No Domain Name is provided."
+  echo $USAGE_PROMPT
+  exit 2
+fi
+
+if [[ -z ${HOSTEDZONEID} ]]; then
+  echo "No Hosted Zone ID is provided."
   echo $USAGE_PROMPT
   exit 2
 fi
@@ -39,6 +46,7 @@ fi
 
 S3_BUCKET=s3://$BUCKET_NAME
 
+#This gets rid of CLI Output being piped to Less by default in AWS CLI v2
 export AWS_PAGER=""
 
 echo "Copy templates folder to $S3_BUCKET"
@@ -65,7 +73,7 @@ CREATE_STACK_CMD="aws cloudformation deploy --stack-name ${STACK_NAME} \
 --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM \
 --parameter-overrides EKSRefArchBucket=$BUCKET_NAME \
                       DomainName=${DOMAINNAME} \
---disable-rollback true"
+                      HostedZoneId=${HOSTEDZONEID}"
 cd "${EKS_REF_ROOT_DIR}"
 echo $CREATE_STACK_CMD
 eval $CREATE_STACK_CMD

@@ -1,1 +1,1 @@
-eks-ref-artifacts-0d891e52ca05b403
+eks-ref-artifacts-a30d6b9c1d560a51

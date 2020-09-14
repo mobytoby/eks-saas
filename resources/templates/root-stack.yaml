@@ -9,10 +9,10 @@ Parameters:
   DomainName:
     Description: The domain which will host the EKS Workloads.
     Type: String
+  #TODO Make this optional. If not provided, create one
   HostedZoneId:
-    Description: The id of an existing hosted zone to user
+    Description: The id of an existing hosted zone to use
     Type: String
-    Default: ''
 Resources:
   CrossRegionCfnRole:
     Type: AWS::IAM::Role
@@ -29,6 +29,7 @@ Resources:
       - PolicyName: CfnStackAssumeRole
         PolicyDocument:
           Version: '2012-10-17'
+          #TODO We can lock these down more
           Statement:
           - Effect: Allow
             Action: 
@@ -42,7 +43,28 @@ Resources:
             - 's3:CreateBucket'
             - 's3:DeleteBucket'
             - 's3:DeleteBucket*'
+            # This specifically can have the ARN of the bucket for which we grant getObject
+            - 's3:GetObject'
             - 's3:PutBucket*'
+            Resource: "*"
+          - Effect: Allow
+            Action: 
+            - 'logs:CreateLogGroup'
+            - 'logs:CreateLogStream'
+            - 'logs:PutLogEvents'
+            - 'events:*'
+            - 'lambda:AddPermission'
+            - 'lambda:RemovePermission'
+            Resource: "*"
+          - Effect: Allow
+            Action: 
+            - 'acm:AddTagsToCertificate' # TODO Scope to resource?
+            - 'acm:DescribeCertificate' # TODO Scope to resource?
+            - 'acm:DeleteCertificate' # TODO Scope to resource
+            - 'acm:GetCertificate' # TODO Scope to resource?
+            - 'acm:ListCertificates'
+            - 'acm:ListTagsForCertificate' # TODO Scope to resource?
+            - 'acm:RequestCertificate'
             Resource: "*"
   CrossRegionLambda:
     Type: AWS::Lambda::Function
@@ -55,6 +77,11 @@ Resources:
       Code:
         S3Bucket: !Ref EKSRefArchBucket
         S3Key: 'cfn-cross-region.zip'
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join ['/', ['/aws/lambda', !Ref CrossRegionLambda]]
+      RetentionInDays: 7 # days    
   Base:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -62,5 +89,26 @@ Resources:
       Parameters:
         EKSRefArchBucket: !Ref EKSRefArchBucket
         CustomDomainName: !Ref DomainName
-        # HostedZoneId: !Ref HostedZoneId
         CrossRegionStackMakerLambda: !GetAtt CrossRegionLambda.Arn
+  AppSite:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: Base
+    Properties:
+      TemplateURL: !Sub https://${EKSRefArchBucket}.s3.amazonaws.com/eks-ref-application.yaml
+      Parameters:
+        AppCertArn: !GetAtt Base.Outputs.AppCertArn
+        CustomDomainName: !Ref DomainName
+        HostedZoneId: !Ref HostedZoneId
+        S3OAIId: !GetAtt Base.Outputs.S3OAIId
+        S3OAIUserId: !GetAtt Base.Outputs.S3OAIUserId
+  RegSite:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: Base
+    Properties:
+      TemplateURL: !Sub https://${EKSRefArchBucket}.s3.amazonaws.com/eks-ref-tenant-management.yaml
+      Parameters:
+        AppCertArn: !GetAtt Base.Outputs.AppCertArn
+        CustomDomainName: !Ref DomainName
+        HostedZoneId: !Ref HostedZoneId
+        S3OAIId: !GetAtt Base.Outputs.S3OAIId
+        S3OAIUserId: !GetAtt Base.Outputs.S3OAIUserId

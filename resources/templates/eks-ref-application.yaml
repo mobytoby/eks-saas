@@ -8,6 +8,10 @@ Parameters:
     Type: String
   S3OAIId:
     Type: String
+  AppCertArn:
+    Type: String
+  HostedZoneId:
+    Type: String
 Resources:
   AppBucket:
     Type: 'AWS::S3::Bucket'
@@ -30,17 +34,18 @@ Resources:
           - !Sub 'app.${CustomDomainName}'
         CustomErrorResponses:
         - ErrorCode: 403 # not found
-          ResponseCode: 404
-          ResponsePagePath: '/404.html'
+          ResponseCode: 200
+          ResponsePagePath: '/index.html'
+          ErrorCachingMinTTL: 300
         DefaultCacheBehavior:
           AllowedMethods:
-          - GET
-          - HEAD
-          - OPTIONS
-          CachedMethods:
-          - GET
-          - HEAD
-          - OPTIONS
+            - DELETE
+            - GET
+            - HEAD
+            - OPTIONS
+            - PATCH
+            - POST
+            - PUT
           Compress: true
           DefaultTTL: 3600 # in seconds
           ForwardedValues:
@@ -61,7 +66,7 @@ Resources:
             OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${S3OAIId}'
         PriceClass: 'PriceClass_All'  
         ViewerCertificate:
-          AcmCertificateArn: !Ref AppCert
+          AcmCertificateArn: !Ref AppCertArn
           MinimumProtocolVersion: 'TLSv1.2_2018'
           SslSupportMethod: 'sni-only'
   ApplicationSiteAlias:
@@ -74,3 +79,10 @@ Resources:
       HostedZoneId : !Ref HostedZoneId
       Name: !Sub 'app.${CustomDomainName}'
       Type: A
+Outputs:
+  ApplicationSiteUrl:
+    Description: The URL of the application site sans any tenant
+    Value: !Sub 'https://${ApplicationSite.DomainName}'
+  AppBucket:
+    Description: The name of the s3 bucket for uploading the application site to
+    Value: !Ref ApplicationSite
